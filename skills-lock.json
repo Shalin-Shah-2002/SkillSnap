@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "api-security-best-practices": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "skillPath": "cli-tool/components/skills/security/api-security-best-practices/SKILL.md",
+      "computedHash": "ea0526c87bc19c42ecc6da9da9d078313de3827b1dbbfe2529e2509de00f867e"
+    },
+    "javascript-testing-patterns": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/javascript-testing-patterns/SKILL.md",
+      "computedHash": "6413ffd7e6949747c300eb0d739862574e724ece491630feb8c03780e85f7dc0"
+    }
+  }
+}

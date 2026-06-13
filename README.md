@@ -35,6 +35,8 @@ Typical flow:
 - Includes a brief source summary file
 - Includes the full captured transcript in every ZIP
 - Uses multiple transcript fallback strategies for better YouTube compatibility
+- **Skill Library** — every successful generation is auto-saved in `chrome.storage.local`; revisit, re-download, regenerate, or delete from the popup History drawer or the options page (per-row actions). Configurable soft cap with FIFO eviction (default 50).
+- **Copy Skill Prompt** — copy a self-contained prompt with the transcript and metadata already inlined. Paste it into Claude Code or Codex to generate the skill in your own CLI; no API key needed for this flow.
 
 ## Project Structure
 

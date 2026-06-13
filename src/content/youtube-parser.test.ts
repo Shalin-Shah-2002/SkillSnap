@@ -4,6 +4,7 @@ import {
   extractInitialDataFromText,
   extractPlayerResponseFromText,
   extractYouTubeConfigFromText,
+  findTranscriptContinuationToken,
   findTranscriptEndpointParams,
   getCaptionTracks,
   parseInnertubeTranscript,
@@ -127,5 +128,42 @@ Next &amp; final step`);
     expect(captionUrlWithFormat("https://example.com/caption?lang=en&fmt=srv3", "json3")).toBe(
       "https://example.com/caption?lang=en&fmt=json3"
     );
+  });
+
+  it("returns an empty transcript when caption body is empty", () => {
+    expect(parseJson3Transcript('{"events":[]}')).toBe("");
+    expect(parseXmlTranscript("<transcript></transcript>")).toBe("");
+    expect(parseVttTranscript("WEBVTT\n\n")).toBe("");
+  });
+
+  it("finds the modern inline transcript section continuation token", () => {
+    const data = {
+      engagementPanels: [
+        {
+          content: {
+            transcriptSection: {
+              content: {
+                transcriptSegmentListRenderer: {
+                  bottomButton: {
+                    buttonRenderer: {
+                      command: {
+                        continuationCommand: { token: "INNER_TOKEN" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    };
+
+    expect(findTranscriptContinuationToken(data)).toBe("INNER_TOKEN");
+  });
+
+  it("finds a plain continuationCommand token", () => {
+    const data = { foo: { bar: { continuationCommand: { token: "PLAIN_TOKEN" } } } };
+    expect(findTranscriptContinuationToken(data)).toBe("PLAIN_TOKEN");
   });
 });

@@ -123,13 +123,92 @@ export function findTranscriptEndpointParams(value: unknown): string | null {
     return null;
   }
 
-  const candidate = value as { getTranscriptEndpoint?: { params?: string } };
+  const candidate = value as {
+    getTranscriptEndpoint?: { params?: string };
+    transcriptSection?: {
+      content?: {
+        transcriptSegmentListRenderer?: {
+          bottomButton?: {
+            buttonRenderer?: {
+              command?: {
+                continuationCommand?: { token?: string };
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+
   if (candidate.getTranscriptEndpoint?.params) {
     return candidate.getTranscriptEndpoint.params;
   }
 
+  const inlineToken =
+    candidate.transcriptSection?.content?.transcriptSegmentListRenderer?.bottomButton?.buttonRenderer?.command
+      ?.continuationCommand?.token;
+  if (inlineToken) {
+    return inlineToken;
+  }
+
   for (const child of Object.values(value)) {
     const found = findTranscriptEndpointParams(child);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+export function findTranscriptEndpointParamsDeep(value: unknown, depth = 0): string | null {
+  if (depth > 20 || !value || typeof value !== "object") {
+    return null;
+  }
+
+  const obj = value as Record<string, unknown>;
+
+  if (typeof obj.getTranscriptEndpoint === "object" && obj.getTranscriptEndpoint !== null) {
+    const endpoint = obj.getTranscriptEndpoint as { params?: string };
+    if (typeof endpoint.params === "string") {
+      return endpoint.params;
+    }
+  }
+
+  if (typeof obj.params === "string" && typeof obj.videoId === "string") {
+    return obj.params;
+  }
+
+  for (const child of Object.values(obj)) {
+    const found = findTranscriptEndpointParamsDeep(child, depth + 1);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+export function findTranscriptContinuationToken(value: unknown): string | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as {
+    continuationCommand?: { token?: string };
+    continuationItemRenderer?: { continuationEndpoint?: { getTranscriptEndpoint?: { params?: string } } };
+  };
+
+  if (typeof candidate.continuationCommand?.token === "string") {
+    return candidate.continuationCommand.token;
+  }
+
+  if (typeof candidate.continuationItemRenderer?.continuationEndpoint?.getTranscriptEndpoint?.params === "string") {
+    return candidate.continuationItemRenderer.continuationEndpoint.getTranscriptEndpoint.params;
+  }
+
+  for (const child of Object.values(value)) {
+    const found = findTranscriptContinuationToken(child);
     if (found) {
       return found;
     }
@@ -152,9 +231,13 @@ export function selectCaptionTrack(tracks: CaptionTrack[]): CaptionTrack | null 
 }
 
 export function captionUrlWithFormat(baseUrl: string, format: "json3" | "srv3" | "vtt"): string {
-  const url = new URL(baseUrl);
-  url.searchParams.set("fmt", format);
-  return url.toString();
+  try {
+    const url = new URL(baseUrl);
+    url.searchParams.set("fmt", format);
+    return url.toString();
+  } catch {
+    return baseUrl;
+  }
 }
 
 export function parseJson3Transcript(payload: string): string {
@@ -224,6 +307,24 @@ export function parseVttTranscript(payload: string): string {
 
 export function parseInnertubeTranscript(payload: unknown): string {
   const cueRenderers = collectTranscriptCueRenderers(payload);
+  if (cueRenderers.length === 0) {
+    const segmentRenderers = collectTranscriptSegmentRenderers(payload);
+    if (segmentRenderers.length > 0) {
+      const lines = segmentRenderers
+        .map((seg) => {
+          const timestamp = Number(seg.startOffsetMs || "0");
+          const text = getRunsText(seg.snippet).replace(/\s+/g, " ").trim();
+          if (!text) {
+            return "";
+          }
+          return `[${formatTimestamp(timestamp)}] ${text}`;
+        })
+        .filter(Boolean);
+      return dedupeAdjacent(lines).join("\n");
+    }
+    return "";
+  }
+
   const lines = cueRenderers
     .map((cue) => {
       const timestamp = Number(cue.startOffsetMs || "0");
@@ -252,6 +353,14 @@ interface TranscriptCueRenderer {
   };
 }
 
+interface TranscriptSegmentRenderer {
+  startOffsetMs?: string;
+  snippet?: {
+    simpleText?: string;
+    runs?: Array<{ text?: string }>;
+  };
+}
+
 function collectTranscriptCueRenderers(value: unknown, out: TranscriptCueRenderer[] = []): TranscriptCueRenderer[] {
   if (!value || typeof value !== "object") {
     return out;
@@ -264,6 +373,23 @@ function collectTranscriptCueRenderers(value: unknown, out: TranscriptCueRendere
 
   for (const child of Object.values(value)) {
     collectTranscriptCueRenderers(child, out);
+  }
+
+  return out;
+}
+
+function collectTranscriptSegmentRenderers(value: unknown, out: TranscriptSegmentRenderer[] = []): TranscriptSegmentRenderer[] {
+  if (!value || typeof value !== "object") {
+    return out;
+  }
+
+  const candidate = value as { transcriptSegmentRenderer?: TranscriptSegmentRenderer };
+  if (candidate.transcriptSegmentRenderer) {
+    out.push(candidate.transcriptSegmentRenderer);
+  }
+
+  for (const child of Object.values(value)) {
+    collectTranscriptSegmentRenderers(child, out);
   }
 
   return out;
