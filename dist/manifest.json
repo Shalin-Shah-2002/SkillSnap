@@ -1,13 +1,15 @@
 {
   "manifest_version": 3,
   "name": "YouTube Skill Maker",
-  "version": "0.1.0",
-  "description": "Turn captioned YouTube videos into Codex and Claude skill ZIPs with Gemini.",
+  "version": "1.0.6",
+  "description": "Turn captioned YouTube videos into Codex and Claude skill ZIPs using Gemini, OpenCode, or NVIDIA NIM.",
   "permissions": ["activeTab", "storage"],
   "host_permissions": [
     "https://www.youtube.com/*",
     "https://m.youtube.com/*",
-    "https://generativelanguage.googleapis.com/*"
+    "https://generativelanguage.googleapis.com/*",
+    "https://opencode.ai/*",
+    "https://integrate.api.nvidia.com/*"
   ],
   "action": {
     "default_title": "Make Skill",

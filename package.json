@@ -1,6 +1,6 @@
 {
   "name": "youtube-skill-maker-extension",
-  "version": "0.1.0",
+  "version": "1.0.6",
   "private": true,
   "type": "module",
   "description": "Chrome MV3 extension that turns captioned YouTube videos into Codex and Claude skill ZIPs using Gemini.",
@@ -16,6 +16,7 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/chrome": "0.0.287",
     "@types/node": "22.7.4",
     "@types/react": "18.3.12",

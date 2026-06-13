@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Test Video</title>
+    <script>
+      const PLAYER_RESPONSE = {
+        captions: {
+          playerCaptionsTracklistRenderer: {
+            captionTracks: [
+              {
+                baseUrl: "/captions/en.vtt?fmt=vtt",
+                languageCode: "en",
+                kind: "asr",
+                name: { simpleText: "English (auto-generated)" }
+              }
+            ]
+          }
+        }
+      };
+
+      const INITIAL_DATA = {
+        contents: {
+          twoColumnWatchNextResults: {
+            results: { results: { contents: [] } }
+          }
+        }
+      };
+
+      const blob = new Blob(
+        [
+          "var ytInitialPlayerResponse = " + JSON.stringify(PLAYER_RESPONSE) + ";",
+          "var ytInitialData = " + JSON.stringify(INITIAL_DATA) + ";"
+        ],
+        { type: "application/javascript" }
+      );
+      const script = document.createElement("script");
+      script.textContent = "var ytInitialPlayerResponse = " + JSON.stringify(PLAYER_RESPONSE) + ";\n" +
+        "var ytInitialData = " + JSON.stringify(INITIAL_DATA) + ";\n";
+      document.head.appendChild(script);
+    </script>
+  </head>
+  <body>
+    <h1 class="title">Test Video Title</h1>
+    <ytd-watch-metadata></ytd-watch-metadata>
+  </body>
+</html>
