@@ -26,16 +26,29 @@ describe("skillFormat", () => {
         displayName: "Agent Workflow",
         description: "Use when designing a repeatable agent workflow.",
         triggerGuidance: "Use this for repeatable agent workflows.",
+        outputFormat: "Return a short Markdown plan with assumptions and next steps.",
         workflow: ["Define the outcome.", "Write the reusable procedure."],
         importantDetails: ["Keep the skill grounded."],
+        examples: [{ input: "Make this repeatable.", output: "A concise reusable procedure." }],
         limitations: ["Do not invent missing source details."],
         videoSummary: "A short lesson about reusable workflows.",
-        referenceNotes: ["The video emphasizes clear steps."]
+        referenceNotes: ["The video emphasizes clear steps."],
+        starterEvalCases: [
+          {
+            prompt: "Turn this messy process into a reusable agent workflow.",
+            expectedOutput: "A workflow with assumptions and concrete steps.",
+            assertions: ["Mentions assumptions.", "Includes ordered steps."]
+          }
+        ]
       },
       video
     );
 
     expect(generated.codex.skillMd).toContain("name: \"agent-workflow\"");
+    expect(generated.codex.skillMd).toContain("## Expected Output");
+    expect(generated.codex.skillMd).toContain("## Examples");
+    expect(generated.codex.skillMd).toContain("## Progressive Disclosure");
+    expect(generated.codex.skillMd).toContain("## Starter Eval Cases");
     expect(generated.claude.skillMd).toContain("## Process");
     expect(generated.codex.referenceMd).toContain("Build Better Agents!");
     expect(generated.codex.referenceMd).not.toContain(video.transcript);

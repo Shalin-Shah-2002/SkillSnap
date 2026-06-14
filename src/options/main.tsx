@@ -16,8 +16,23 @@ import {
   MAX_SKILL_LIBRARY_SOFT_CAP,
   MIN_SKILL_LIBRARY_SOFT_CAP
 } from "../shared/skillLibraryTypes";
+import { SKILL_REVIEW_LAUNCH_KEY, type SkillEvalGrade, type SkillEvalRun, type SkillReviewSession } from "../shared/skillReviewTypes";
 import { BrandMark } from "../shared/branding";
-import type { ExtensionSettings, LibraryListResult, LibraryRebuildZipResult, RuntimeRequest, RuntimeResponse } from "../shared/types";
+import type {
+  ExtensionSettings,
+  LibraryListResult,
+  LibraryRebuildZipResult,
+  RuntimeRequest,
+  RuntimeResponse,
+  SkillReviewApplyResult,
+  SkillReviewListResult
+} from "../shared/types";
+
+type LibraryTab = "codex-skill" | "codex-reference" | "claude-skill" | "claude-reference";
+
+type LibraryView =
+  | { kind: "files"; entry: SkillLibraryEntry; tab: LibraryTab }
+  | { kind: "review"; entry: SkillLibraryEntry };
 
 function OptionsApp() {
   const [settings, setSettings] = useState<ExtensionSettings>(() => defaultEmptySettings());
@@ -197,10 +212,20 @@ function SkillLibrarySection() {
   const [pendingCap, setPendingCap] = useState<number>(DEFAULT_SKILL_LIBRARY_SOFT_CAP);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [view, setView] = useState<{ entry: SkillLibraryEntry; tab: "codex-skill" | "codex-reference" | "claude-skill" | "claude-reference" } | null>(null);
+  const [view, setView] = useState<LibraryView | null>(null);
 
   useEffect(() => {
     void refresh();
+  }, []);
+
+  useEffect(() => {
+    chrome.storage.local.get(SKILL_REVIEW_LAUNCH_KEY, (items) => {
+      const launch = (items || {})[SKILL_REVIEW_LAUNCH_KEY] as { entryId?: string; savedAt?: number } | undefined;
+      if (!launch?.entryId) return;
+      if (typeof launch.savedAt === "number" && Date.now() - launch.savedAt > 10 * 60 * 1000) return;
+      chrome.storage.local.remove(SKILL_REVIEW_LAUNCH_KEY);
+      void openReviewById(launch.entryId);
+    });
   }, []);
 
   async function refresh() {
@@ -210,6 +235,12 @@ function SkillLibrarySection() {
       setEntries(result.entries);
       setSoftCap(result.config.softCap);
       setPendingCap(result.config.softCap);
+      setView((current) => {
+        if (!current) return current;
+        const updatedEntry = result.entries.find((entry) => entry.id === current.entry.id);
+        if (!updatedEntry) return null;
+        return { ...current, entry: updatedEntry } as LibraryView;
+      });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load the library.");
     }
@@ -232,6 +263,22 @@ function SkillLibrarySection() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function openReviewById(entryId: string) {
+    setError("");
+    try {
+      const entry = await sendOptionsRuntime<SkillLibraryEntry>({ type: "LIBRARY_GET", id: entryId });
+      setView({ kind: "review", entry });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not open the review workspace.");
+    }
+  }
+
+  async function handleEntryUpdated(entry: SkillLibraryEntry) {
+    setEntries((current) => current.map((item) => (item.id === entry.id ? entry : item)));
+    setView((current) => (current ? ({ ...current, entry } as LibraryView) : current));
+    await refresh();
   }
 
   async function downloadEntry(entry: SkillLibraryEntry, kind: "codex" | "claude") {
@@ -315,7 +362,11 @@ function SkillLibrarySection() {
       </div>
 
       {view ? (
-        <LibraryEntryView entry={view.entry} tab={view.tab} setTab={setView} onClose={() => setView(null)} />
+        view.kind === "files" ? (
+          <LibraryEntryView entry={view.entry} tab={view.tab} setTab={setView} onClose={() => setView(null)} />
+        ) : (
+          <LibraryReviewView entry={view.entry} onClose={() => setView(null)} onEntryUpdated={(entry) => void handleEntryUpdated(entry)} />
+        )
       ) : entries.length === 0 ? (
         <p className="muted">No skills yet. Generate a skill in the popup to populate the library.</p>
       ) : (
@@ -335,8 +386,11 @@ function SkillLibrarySection() {
                 <button type="button" disabled={busy} onClick={() => void downloadEntry(entry, "claude")}>
                   ⬇ Claude
                 </button>
-                <button type="button" onClick={() => setView({ entry, tab: "codex-skill" })}>
+                <button type="button" onClick={() => setView({ kind: "files", entry, tab: "codex-skill" })}>
                   View
+                </button>
+                <button type="button" onClick={() => setView({ kind: "review", entry })}>
+                  Review & Improve
                 </button>
                 <button type="button" onClick={() => void copyUrl(entry)}>
                   Copy URL
@@ -355,8 +409,8 @@ function SkillLibrarySection() {
 
 function LibraryEntryView(props: {
   entry: SkillLibraryEntry;
-  tab: "codex-skill" | "codex-reference" | "claude-skill" | "claude-reference";
-  setTab: React.Dispatch<React.SetStateAction<{ entry: SkillLibraryEntry; tab: "codex-skill" | "codex-reference" | "claude-skill" | "claude-reference" } | null>>;
+  tab: LibraryTab;
+  setTab: React.Dispatch<React.SetStateAction<LibraryView | null>>;
   onClose: () => void;
 }) {
   const value = useMemo(() => {
@@ -381,16 +435,16 @@ function LibraryEntryView(props: {
         </button>
       </div>
       <div className="button-row" role="tablist" aria-label="Skill files">
-        <TabButton id="codex-skill" active={props.tab} setActive={(tab) => props.setTab({ entry: props.entry, tab })}>
+        <TabButton id="codex-skill" active={props.tab} setActive={(tab) => props.setTab({ kind: "files", entry: props.entry, tab })}>
           Codex SKILL.md
         </TabButton>
-        <TabButton id="codex-reference" active={props.tab} setActive={(tab) => props.setTab({ entry: props.entry, tab })}>
+        <TabButton id="codex-reference" active={props.tab} setActive={(tab) => props.setTab({ kind: "files", entry: props.entry, tab })}>
           Codex Notes
         </TabButton>
-        <TabButton id="claude-skill" active={props.tab} setActive={(tab) => props.setTab({ entry: props.entry, tab })}>
+        <TabButton id="claude-skill" active={props.tab} setActive={(tab) => props.setTab({ kind: "files", entry: props.entry, tab })}>
           Claude SKILL.md
         </TabButton>
-        <TabButton id="claude-reference" active={props.tab} setActive={(tab) => props.setTab({ entry: props.entry, tab })}>
+        <TabButton id="claude-reference" active={props.tab} setActive={(tab) => props.setTab({ kind: "files", entry: props.entry, tab })}>
           Claude Notes
         </TabButton>
       </div>
@@ -399,10 +453,339 @@ function LibraryEntryView(props: {
   );
 }
 
+function LibraryReviewView(props: {
+  entry: SkillLibraryEntry;
+  onClose: () => void;
+  onEntryUpdated: (entry: SkillLibraryEntry) => void;
+}) {
+  const [sessions, setSessions] = useState<SkillReviewSession[]>([]);
+  const [active, setActive] = useState<SkillReviewSession | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    void refreshSessions();
+  }, [props.entry.id]);
+
+  useEffect(() => {
+    if (!active) {
+      setFeedbackDrafts({});
+      return;
+    }
+    setFeedbackDrafts(active.feedback);
+  }, [active?.id, active?.updatedAt]);
+
+  async function refreshSessions() {
+    setError("");
+    try {
+      const result = await sendOptionsRuntime<SkillReviewListResult>({
+        type: "SKILL_REVIEW_LIST",
+        entryId: props.entry.id
+      });
+      setSessions(result.sessions);
+      setActive((current) => {
+        if (current) {
+          return result.sessions.find((session) => session.id === current.id) || result.sessions[0] || null;
+        }
+        return result.sessions[0] || null;
+      });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not load review sessions.");
+    }
+  }
+
+  async function startReview() {
+    setBusy(true);
+    setError("");
+    setNotice("Preparing eval cases...");
+    try {
+      const created = await sendOptionsRuntime<SkillReviewSession>({
+        type: "SKILL_REVIEW_CREATE",
+        entryId: props.entry.id,
+        kind: "codex"
+      });
+      setActive(created);
+      setSessions((current) => [created, ...current.filter((session) => session.id !== created.id)]);
+      setNotice("Running baseline and with-skill answers...");
+      const completed = await sendOptionsRuntime<SkillReviewSession>({
+        type: "SKILL_REVIEW_STEP",
+        sessionId: created.id
+      });
+      setActive(completed);
+      setSessions((current) => [completed, ...current.filter((session) => session.id !== completed.id)]);
+      setNotice("Review ready.");
+      window.setTimeout(() => setNotice(""), 2200);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not run the review.");
+      setNotice("");
+      void refreshSessions();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveFeedback(evalCaseId: string) {
+    if (!active) return;
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await sendOptionsRuntime<SkillReviewSession>({
+        type: "SKILL_REVIEW_SAVE_FEEDBACK",
+        sessionId: active.id,
+        evalCaseId,
+        feedback: feedbackDrafts[evalCaseId] || ""
+      });
+      setActive(updated);
+      setSessions((current) => [updated, ...current.filter((session) => session.id !== updated.id)]);
+      setNotice("Feedback saved.");
+      window.setTimeout(() => setNotice(""), 1800);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not save feedback.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function draftImprovement() {
+    if (!active) return;
+    setBusy(true);
+    setError("");
+    setNotice("Drafting an improved SKILL.md...");
+    try {
+      const updated = await sendOptionsRuntime<SkillReviewSession>({
+        type: "SKILL_REVIEW_IMPROVE",
+        sessionId: active.id
+      });
+      setActive(updated);
+      setSessions((current) => [updated, ...current.filter((session) => session.id !== updated.id)]);
+      setNotice("Improvement drafted.");
+      window.setTimeout(() => setNotice(""), 2200);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not draft an improvement.");
+      setNotice("");
+      void refreshSessions();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyImprovement() {
+    if (!active?.improvement) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await sendOptionsRuntime<SkillReviewApplyResult>({
+        type: "SKILL_REVIEW_APPLY_IMPROVEMENT",
+        sessionId: active.id
+      });
+      setActive(result.session);
+      setSessions((current) => [result.session, ...current.filter((session) => session.id !== result.session.id)]);
+      props.onEntryUpdated(result.entry);
+      setNotice("Improved skill applied.");
+      window.setTimeout(() => setNotice(""), 2200);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not apply the improvement.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const canImprove = active?.status === "ready" || active?.status === "improved" || active?.status === "applied";
+
+  return (
+    <div className="stack review-workspace">
+      <div className="row-between">
+        <div>
+          <h3>Review & Improve</h3>
+          <p className="muted">
+            {props.entry.skillName} · text/markdown evals · Codex package
+          </p>
+        </div>
+        <div className="button-row">
+          <button type="button" onClick={props.onClose}>
+            Back
+          </button>
+          <button type="button" className="primary" onClick={() => void startReview()} disabled={busy}>
+            {busy ? "Working..." : "Start review"}
+          </button>
+        </div>
+      </div>
+
+      {notice && <div className="success">{notice}</div>}
+      {error && <div className="error" role="alert">{error}</div>}
+
+      {sessions.length > 1 && (
+        <label>
+          Review session
+          <select
+            value={active?.id || ""}
+            onChange={(event) => setActive(sessions.find((session) => session.id === event.target.value) || null)}
+          >
+            {sessions.map((session) => (
+              <option key={session.id} value={session.id}>
+                {formatRelativeTime(session.updatedAt)} · {session.status} · {session.cases.length} evals
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {!active ? (
+        <p className="muted">
+          Start a review to generate realistic test prompts, compare baseline answers with skill-guided answers, and draft a better SKILL.md.
+        </p>
+      ) : (
+        <>
+          {active.summary && <ReviewSummaryPanel session={active} />}
+
+          <div className="review-grid">
+            {active.cases.map((evalCase) => {
+              const baselineRun = findRun(active.runs, evalCase.id, "baseline");
+              const skillRun = findRun(active.runs, evalCase.id, "with_skill");
+              const baselineGrade = findGrade(active.grades, evalCase.id, "baseline");
+              const skillGrade = findGrade(active.grades, evalCase.id, "with_skill");
+              return (
+                <article key={evalCase.id} className="review-card">
+                  <div className="row-between">
+                    <div>
+                      <h3>{evalCase.name}</h3>
+                      <p className="muted">{evalCase.expectedOutput}</p>
+                    </div>
+                    <span className="score-pill">
+                      {formatPercent(skillGrade?.passRate)} with skill
+                    </span>
+                  </div>
+                  <div className="review-prompt">
+                    <strong>Prompt</strong>
+                    <p>{evalCase.prompt}</p>
+                  </div>
+                  <RunComparison
+                    baselineRun={baselineRun}
+                    skillRun={skillRun}
+                    baselineGrade={baselineGrade}
+                    skillGrade={skillGrade}
+                  />
+                  <label>
+                    Feedback
+                    <textarea
+                      className="feedback-box"
+                      value={feedbackDrafts[evalCase.id] || ""}
+                      placeholder="What should the next version do better?"
+                      onChange={(event) =>
+                        setFeedbackDrafts((current) => ({ ...current, [evalCase.id]: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <button type="button" onClick={() => void saveFeedback(evalCase.id)} disabled={busy}>
+                    Save feedback
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="review-actions">
+            <button type="button" onClick={() => void draftImprovement()} disabled={busy || !canImprove}>
+              Draft improved SKILL.md
+            </button>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => void applyImprovement()}
+              disabled={busy || !active.improvement || active.status === "applied"}
+            >
+              Apply improvement
+            </button>
+          </div>
+
+          {active.improvement && (
+            <section className="stack improvement-panel">
+              <div>
+                <h3>Improvement proposal</h3>
+                <p className="muted">{active.improvement.rationale}</p>
+              </div>
+              <textarea value={active.improvement.proposedSkillMd} readOnly spellCheck={false} />
+            </section>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function ReviewSummaryPanel(props: { session: SkillReviewSession }) {
+  const summary = props.session.summary;
+  if (!summary) return null;
+  return (
+    <div className="review-summary" aria-label="Review benchmark summary">
+      <div>
+        <span className="metric-label">With skill</span>
+        <strong>{formatPercent(summary.withSkillPassRate)}</strong>
+      </div>
+      <div>
+        <span className="metric-label">Baseline</span>
+        <strong>{formatPercent(summary.baselinePassRate)}</strong>
+      </div>
+      <div>
+        <span className="metric-label">Delta</span>
+        <strong>{formatSignedPercent(summary.passRateDelta)}</strong>
+      </div>
+      <div>
+        <span className="metric-label">Evals</span>
+        <strong>{summary.evalCount}</strong>
+      </div>
+      {summary.withSkillMeanTokens !== undefined && (
+        <div>
+          <span className="metric-label">Avg tokens</span>
+          <strong>{Math.round(summary.withSkillMeanTokens).toLocaleString()}</strong>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RunComparison(props: {
+  baselineRun?: SkillEvalRun;
+  skillRun?: SkillEvalRun;
+  baselineGrade?: SkillEvalGrade;
+  skillGrade?: SkillEvalGrade;
+}) {
+  return (
+    <div className="run-comparison">
+      <RunColumn title="Baseline" run={props.baselineRun} grade={props.baselineGrade} />
+      <RunColumn title="With skill" run={props.skillRun} grade={props.skillGrade} />
+    </div>
+  );
+}
+
+function RunColumn(props: { title: string; run?: SkillEvalRun; grade?: SkillEvalGrade }) {
+  return (
+    <div className="run-column">
+      <div className="row-between">
+        <strong>{props.title}</strong>
+        <span className="score-pill">{formatPercent(props.grade?.passRate)}</span>
+      </div>
+      <pre>{props.run?.output || props.run?.error || "Not run yet."}</pre>
+      {props.grade && (
+        <ul className="grade-list">
+          {props.grade.expectations.map((item, index) => (
+            <li key={`${item.text}-${index}`} className={item.passed ? "passed" : "failed"}>
+              <strong>{item.passed ? "Pass" : "Check"}</strong> {item.text}
+              <span>{item.evidence}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function TabButton(props: {
-  id: "codex-skill" | "codex-reference" | "claude-skill" | "claude-reference";
-  active: "codex-skill" | "codex-reference" | "claude-skill" | "claude-reference";
-  setActive: (tab: "codex-skill" | "codex-reference" | "claude-skill" | "claude-reference") => void;
+  id: LibraryTab;
+  active: LibraryTab;
+  setActive: (tab: LibraryTab) => void;
   children: React.ReactNode;
 }) {
   return (
@@ -416,6 +799,24 @@ function TabButton(props: {
       {props.children}
     </button>
   );
+}
+
+function findRun(runs: SkillEvalRun[], evalCaseId: string, kind: "baseline" | "with_skill"): SkillEvalRun | undefined {
+  return runs.find((run) => run.evalCaseId === evalCaseId && run.kind === kind);
+}
+
+function findGrade(grades: SkillEvalGrade[], evalCaseId: string, kind: "baseline" | "with_skill"): SkillEvalGrade | undefined {
+  return grades.find((grade) => grade.evalCaseId === evalCaseId && grade.kind === kind);
+}
+
+function formatPercent(value: number | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "0%";
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatSignedPercent(value: number): string {
+  const rounded = Math.round(value * 100);
+  return `${rounded >= 0 ? "+" : ""}${rounded}%`;
 }
 
 function downloadBase64Zip(base64: string, fileName: string): void {

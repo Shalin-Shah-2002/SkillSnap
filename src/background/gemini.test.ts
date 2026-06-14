@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { extractGeminiText, GeminiProvider, normalizeGeminiErrorMessage, testGeminiApiKey } from "./gemini";
+import {
+  extractGeminiText,
+  GeminiProvider,
+  normalizeGeminiErrorMessage,
+  requestGeminiTextWithFallback,
+  testGeminiApiKey
+} from "./gemini";
 import { parseSkillDraftJson } from "../shared/parseSkillJson";
 import { getProvider } from "./providers";
 import { PROVIDER_LIST } from "../shared/providers";
@@ -70,6 +76,34 @@ describe("testGeminiApiKey", () => {
       const result = await testGeminiApiKey("AIza-test");
       expect(result.ok).toBe(false);
       expect(result.message).toContain("401");
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+});
+
+describe("requestGeminiTextWithFallback", () => {
+  it("returns generated text with usage metadata", async () => {
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            candidates: [{ content: { parts: [{ text: "review output" }] } }],
+            usageMetadata: { totalTokenCount: 42 }
+          }),
+          { status: 200 }
+        )
+      )) as typeof fetch;
+    try {
+      const result = await requestGeminiTextWithFallback({
+        apiKey: "AIza-test",
+        model: "gemini-2.5-flash",
+        prompt: "hello"
+      });
+      expect(result.text).toBe("review output");
+      expect(result.totalTokens).toBe(42);
+      expect(result.durationMs).toBeGreaterThanOrEqual(0);
     } finally {
       globalThis.fetch = realFetch;
     }

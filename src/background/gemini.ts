@@ -16,9 +16,21 @@ interface GeminiResponse {
       parts?: GeminiPart[];
     };
   }>;
+  usageMetadata?: {
+    totalTokenCount?: number;
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+  };
   error?: {
     message?: string;
   };
+}
+
+export interface GeminiTextResult {
+  text: string;
+  model: string;
+  durationMs: number;
+  totalTokens?: number;
 }
 
 export class GeminiProvider implements SkillProvider {
@@ -210,4 +222,79 @@ export async function testGeminiApiKey(
     }
   }
   return { ok: false, message: "No accessible Gemini models found for this key.", model: "" };
+}
+
+export async function requestGeminiTextWithFallback(params: {
+  apiKey: string;
+  model: string;
+  prompt: string;
+  temperature?: number;
+  responseMimeType?: "application/json" | "text/plain";
+}): Promise<GeminiTextResult> {
+  const provider = new GeminiProvider();
+  const candidateModels = provider.getCandidateModels(params.model);
+  let lastError: Error | null = null;
+
+  for (const candidateModel of candidateModels) {
+    try {
+      return await requestGeminiText({
+        ...params,
+        model: candidateModel
+      });
+    } catch (error) {
+      if (!(error instanceof Error) || !isRetryableModelError(error)) {
+        throw error;
+      }
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("No compatible Gemini Flash model was available.");
+}
+
+async function requestGeminiText(params: {
+  apiKey: string;
+  model: string;
+  prompt: string;
+  temperature?: number;
+  responseMimeType?: "application/json" | "text/plain";
+}): Promise<GeminiTextResult> {
+  const started = Date.now();
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+    params.model
+  )}:generateContent`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": params.apiKey
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: params.prompt }]
+        }
+      ],
+      generationConfig: {
+        temperature: params.temperature ?? 0.2,
+        ...(params.responseMimeType ? { responseMimeType: params.responseMimeType } : {})
+      }
+    })
+  });
+
+  const payload = (await response.json()) as GeminiResponse;
+
+  if (!response.ok) {
+    throw new Error(normalizeGeminiErrorMessage(payload.error?.message, response.status));
+  }
+
+  const totalTokens = payload.usageMetadata?.totalTokenCount;
+  return {
+    text: extractGeminiText(payload),
+    model: params.model,
+    durationMs: Date.now() - started,
+    ...(typeof totalTokens === "number" ? { totalTokens } : {})
+  };
 }

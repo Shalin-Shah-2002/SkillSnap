@@ -11,16 +11,21 @@ import {
   SKILL_LIBRARY_CONFIG_KEY,
   type SkillLibraryConfig
 } from "../shared/skillLibraryTypes";
+import { createSkillReviewStorage } from "../shared/skillReviewStorage";
+import type { SkillReviewSession } from "../shared/skillReviewTypes";
 import type {
   ExtensionSettings,
   GeneratedSkills,
   LibraryListResult,
   LibraryRebuildZipResult,
   RuntimeRequest,
-  RuntimeResponse
+  RuntimeResponse,
+  SkillReviewApplyResult,
+  SkillReviewListResult
 } from "../shared/types";
 import { getProvider } from "./providers";
-import { testGeminiApiKey } from "./gemini";
+import { requestGeminiTextWithFallback, testGeminiApiKey } from "./gemini";
+import { createReviewSession, improveReviewSession, runReviewSession, type ReviewTextGenerator } from "./skillReviewEngine";
 
 interface SettingsStatus {
   hasKey: boolean;
@@ -40,6 +45,21 @@ const consoleLogger = {
 const UI_LAUNCH_CONTEXT_KEY = "uiLaunchContext";
 
 const skillLibrary = createSkillLibrary({
+  storage: {
+    get(keys, callback) {
+      chrome.storage.local.get(keys, (items) => callback((items || {}) as Record<string, unknown>));
+    },
+    set(items, callback) {
+      chrome.storage.local.set(items, () => callback?.());
+    },
+    remove(keys, callback) {
+      chrome.storage.local.remove(keys, () => callback?.());
+    }
+  },
+  logger: consoleLogger
+});
+
+const skillReviewStorage = createSkillReviewStorage({
   storage: {
     get(keys, callback) {
       chrome.storage.local.get(keys, (items) => callback((items || {}) as Record<string, unknown>));
@@ -80,6 +100,9 @@ async function handleRuntimeMessage(
   | { ok: boolean }
   | LibraryRebuildZipResult
   | SkillLibraryConfig
+  | SkillReviewSession
+  | SkillReviewListResult
+  | SkillReviewApplyResult
 > {
   if (message.type === "GET_SETTINGS_STATUS") {
     const settings = await getSettings();
@@ -189,6 +212,9 @@ async function handleRuntimeMessage(
 
   if (message.type === "LIBRARY_DELETE") {
     const ok = await skillLibrary.deleteEntry(message.id);
+    if (ok) {
+      await skillReviewStorage.deleteSessionsForEntry(message.id);
+    }
     return { ok };
   }
 
@@ -239,6 +265,8 @@ async function handleRuntimeMessage(
       files: message.files,
       skillName: message.skillName,
       displayName: message.displayName,
+      codexZip: "",
+      claudeZip: "",
       ...(message.skillNameHint !== undefined ? { skillNameHint: message.skillNameHint } : {})
     });
     if (!updated) {
@@ -247,7 +275,142 @@ async function handleRuntimeMessage(
     return updated;
   }
 
+  if (message.type === "SKILL_REVIEW_LIST") {
+    return { sessions: await skillReviewStorage.listSessions(message.entryId) };
+  }
+
+  if (message.type === "SKILL_REVIEW_CREATE") {
+    const entry = await getLibraryEntryOrThrow(message.entryId);
+    const session = await createReviewSession(entry, message.kind || "codex", {
+      generateText: await buildReviewTextGenerator()
+    });
+    await skillReviewStorage.upsertSession(session);
+    return session;
+  }
+
+  if (message.type === "SKILL_REVIEW_STEP") {
+    const session = await getReviewSessionOrThrow(message.sessionId);
+    const entry = await getLibraryEntryOrThrow(session.entryId);
+    const running: SkillReviewSession = { ...session, status: "running", updatedAt: new Date().toISOString() };
+    await skillReviewStorage.upsertSession(running);
+    try {
+      const updated = await runReviewSession(running, entry, {
+        generateText: await buildReviewTextGenerator()
+      });
+      await skillReviewStorage.upsertSession(updated);
+      return updated;
+    } catch (error) {
+      await skillReviewStorage.upsertSession({
+        ...running,
+        status: "failed",
+        updatedAt: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "The review run failed."
+      });
+      throw error;
+    }
+  }
+
+  if (message.type === "SKILL_REVIEW_SAVE_FEEDBACK") {
+    const session = await getReviewSessionOrThrow(message.sessionId);
+    const updated: SkillReviewSession = {
+      ...session,
+      feedback: { ...session.feedback, [message.evalCaseId]: message.feedback },
+      updatedAt: new Date().toISOString()
+    };
+    await skillReviewStorage.upsertSession(updated);
+    return updated;
+  }
+
+  if (message.type === "SKILL_REVIEW_IMPROVE") {
+    const session = await getReviewSessionOrThrow(message.sessionId);
+    const entry = await getLibraryEntryOrThrow(session.entryId);
+    const improving: SkillReviewSession = { ...session, status: "improving", updatedAt: new Date().toISOString() };
+    await skillReviewStorage.upsertSession(improving);
+    try {
+      const updated = await improveReviewSession(improving, entry, {
+        generateText: await buildReviewTextGenerator()
+      });
+      await skillReviewStorage.upsertSession(updated);
+      return updated;
+    } catch (error) {
+      await skillReviewStorage.upsertSession({
+        ...improving,
+        status: "failed",
+        updatedAt: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "The improvement step failed."
+      });
+      throw error;
+    }
+  }
+
+  if (message.type === "SKILL_REVIEW_APPLY_IMPROVEMENT") {
+    const session = await getReviewSessionOrThrow(message.sessionId);
+    if (!session.improvement?.proposedSkillMd) {
+      throw new Error("This review session does not have an improvement to apply yet.");
+    }
+    const entry = await getLibraryEntryOrThrow(session.entryId);
+    const files =
+      session.kind === "codex"
+        ? {
+            ...entry.files,
+            codex: { ...entry.files.codex, skill: session.improvement.proposedSkillMd }
+          }
+        : {
+            ...entry.files,
+            claude: { ...entry.files.claude, skill: session.improvement.proposedSkillMd }
+          };
+    const updatedEntry = await skillLibrary.updateEntry(entry.id, {
+      files,
+      ...(session.kind === "codex" ? { codexZip: "" } : { claudeZip: "" })
+    });
+    if (!updatedEntry) {
+      throw new Error("Could not apply the improved skill.");
+    }
+    const updatedSession: SkillReviewSession = {
+      ...session,
+      status: "applied",
+      updatedAt: new Date().toISOString()
+    };
+    await skillReviewStorage.upsertSession(updatedSession);
+    return { entry: updatedEntry, session: updatedSession };
+  }
+
   throw new Error("Unsupported extension request.");
+}
+
+async function getLibraryEntryOrThrow(id: string): Promise<SkillLibraryEntry> {
+  const entry = await skillLibrary.getEntry(id);
+  if (!entry) {
+    throw new Error("That skill is no longer in the library.");
+  }
+  return entry;
+}
+
+async function getReviewSessionOrThrow(id: string): Promise<SkillReviewSession> {
+  const session = await skillReviewStorage.getSession(id);
+  if (!session) {
+    throw new Error("That review session is no longer available.");
+  }
+  return session;
+}
+
+async function buildReviewTextGenerator(): Promise<ReviewTextGenerator> {
+  const settings = await getSettings();
+  if (!hasProviderKey(settings, settings.activeProvider)) {
+    throw new Error(
+      `Add an API key for the active provider in extension settings first. Active provider: ${settings.activeProvider}.`
+    );
+  }
+  const providerSettings = getSettingsForProvider(settings, settings.activeProvider);
+  const provider = getProvider(settings.activeProvider);
+  return (prompt, options) =>
+    requestGeminiTextWithFallback({
+      apiKey: providerSettings.apiKey.trim(),
+      model: providerSettings.model.trim() || provider.defaultModel,
+      prompt,
+      temperature: options?.temperature,
+      responseMimeType: options?.json ? "application/json" : undefined
+    });
 }
 
 async function openExtensionUi(sender: chrome.runtime.MessageSender): Promise<void> {

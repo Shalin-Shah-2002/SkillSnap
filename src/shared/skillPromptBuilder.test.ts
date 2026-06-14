@@ -52,14 +52,25 @@ describe("skillPromptBuilder", () => {
       "displayName",
       "description",
       "triggerGuidance",
+      "outputFormat",
       "workflow",
       "importantDetails",
+      "examples",
       "limitations",
       "videoSummary",
-      "referenceNotes"
+      "referenceNotes",
+      "starterEvalCases"
     ]) {
       expect(prompt).toContain(`"${field}"`);
     }
+  });
+
+  it("includes skill-creator guidance and preferred skill names", () => {
+    const prompt = buildSkillPrompt(sampleVideo, { preferredSkillName: "agent-review-loop" });
+    expect(prompt).toContain("Use the skill-creator style");
+    expect(prompt).toContain("Preferred skill name: agent-review-loop");
+    expect(prompt).toContain("progressive disclosure");
+    expect(prompt).toContain("Starter eval cases");
   });
 
   it("contains the output packaging instructions", () => {

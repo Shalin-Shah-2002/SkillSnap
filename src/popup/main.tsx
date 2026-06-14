@@ -14,6 +14,7 @@ import {
   MAX_SKILL_LIBRARY_SOFT_CAP,
   MIN_SKILL_LIBRARY_SOFT_CAP
 } from "../shared/skillLibraryTypes";
+import { SKILL_REVIEW_LAUNCH_KEY } from "../shared/skillReviewTypes";
 import type {
   ContentRequest,
   GeneratedSkills,
@@ -169,6 +170,7 @@ function App() {
     setError("");
     setGenerated(null);
     setEditable(null);
+    setLibraryEntryId("");
 
     try {
       setStage("capturing");
@@ -218,7 +220,7 @@ function App() {
       if (trim.trimmed) {
         setLongTranscriptNotice(true);
       }
-      const prompt = buildSkillPrompt(captured);
+      const prompt = buildSkillPrompt(captured, { preferredSkillName: preferredName });
       await writeToClipboard(prompt);
       setClipboardStatus("copied");
       if (copyTipVisible) {
@@ -357,6 +359,15 @@ function App() {
     } finally {
       setHistoryBusy(false);
     }
+  }
+
+  async function openReview(entryId: string) {
+    if (!entryId) {
+      setError("Save this skill to the library before reviewing it.");
+      return;
+    }
+    await chrome.storage.local.set({ [SKILL_REVIEW_LAUNCH_KEY]: { entryId, savedAt: Date.now() } });
+    chrome.runtime.openOptionsPage();
   }
 
   async function regenerateFromEntry(entry: SkillLibraryEntry) {
@@ -565,6 +576,9 @@ function App() {
               <button type="button" onClick={resaveFromEditor}>
                 Save to library
               </button>
+              <button type="button" onClick={() => void openReview(libraryEntryId)} disabled={!libraryEntryId}>
+                Review & Improve
+              </button>
             </div>
           </div>
 
@@ -599,6 +613,7 @@ function App() {
           onCopyUrl={copyHistoryUrl}
           onDelete={deleteHistoryEntry}
           onRegenerate={regenerateFromEntry}
+          onReview={(entry) => void openReview(entry.id)}
         />
       )}
 
@@ -629,6 +644,7 @@ function HistoryList(props: {
   onCopyUrl: (entry: SkillLibraryEntry) => void;
   onDelete: (entry: SkillLibraryEntry) => void;
   onRegenerate: (entry: SkillLibraryEntry) => void;
+  onReview: (entry: SkillLibraryEntry) => void;
 }) {
   return (
     <section className="panel stack" aria-label="Skill library">
@@ -673,6 +689,9 @@ function HistoryList(props: {
                 </button>
                 <button type="button" onClick={() => props.onRegenerate(entry)}>
                   Regenerate
+                </button>
+                <button type="button" onClick={() => props.onReview(entry)}>
+                  Review
                 </button>
                 <button type="button" className="danger" onClick={() => props.onDelete(entry)} disabled={props.busy}>
                   Delete

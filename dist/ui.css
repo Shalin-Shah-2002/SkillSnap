@@ -2,6 +2,7 @@
   color-scheme: light;
   --bg: #f7f2ff;
   --bg-soft: #fbfaff;
+  --bg-wash: #f4fbff;
   --surface: #ffffff;
   --surface-soft: #f4efff;
   --surface-strong: #eee7ff;
@@ -14,6 +15,10 @@
   --accent-soft: #ede9fe;
   --accent-ink: #4c1d95;
   --accent-glow: rgba(124, 58, 237, 0.18);
+  --blue: #2563eb;
+  --blue-soft: #eff6ff;
+  --mint: #0f766e;
+  --mint-soft: #ecfdfa;
   --danger: #b42318;
   --danger-soft: #fff1f0;
   --success: #0b6b50;
@@ -24,8 +29,13 @@
   --editor-bg: #171222;
   --editor-border: #3f315c;
   --editor-text: #f7f2ff;
-  --shadow: 0 14px 38px rgba(76, 29, 149, 0.12);
-  --shadow-soft: 0 8px 22px rgba(76, 29, 149, 0.08);
+  --radius-xs: 10px;
+  --radius-sm: 14px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --shadow: 0 20px 54px rgba(76, 29, 149, 0.14);
+  --shadow-soft: 0 12px 30px rgba(76, 29, 149, 0.09);
+  --shadow-lift: 0 14px 28px rgba(76, 29, 149, 0.14);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
@@ -38,7 +48,8 @@
 body {
   margin: 0;
   background:
-    linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 48%, #ffffff 100%);
+    radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.08), transparent 34%),
+    linear-gradient(145deg, var(--bg) 0%, var(--bg-wash) 44%, #ffffff 100%);
   color: var(--text);
 }
 
@@ -89,10 +100,12 @@ body {
   width: 56px;
   height: 56px;
   flex: 0 0 auto;
-  border-radius: 16px;
+  border-radius: 20px;
   object-fit: cover;
-  box-shadow: 0 10px 22px rgba(76, 29, 149, 0.12);
-  background: rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 13px 28px rgba(76, 29, 149, 0.15),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.68);
 }
 
 h1,
@@ -133,7 +146,7 @@ strong {
 
 code {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--surface-soft);
   color: var(--accent-ink);
   padding: 1px 5px;
@@ -155,13 +168,13 @@ a {
   position: relative;
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.9)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(251, 249, 255, 0.92)),
     var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
-  padding: 14px;
-  margin-top: 12px;
+  padding: 16px;
+  margin-top: 14px;
 }
 
 .prompt-panel {
@@ -174,14 +187,14 @@ a {
   content: "";
   position: absolute;
   inset: 0 0 auto;
-  height: 3px;
-  background: linear-gradient(90deg, var(--accent), #a855f7, #c084fc);
+  height: 4px;
+  background: linear-gradient(90deg, var(--accent), var(--blue), var(--mint));
 }
 
 .warning,
 .error,
 .success {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 10px 12px;
   font-size: 12px;
   line-height: 1.45;
@@ -236,9 +249,9 @@ button,
   border: 1px solid var(--border);
   background: linear-gradient(180deg, #ffffff, #fbf8ff);
   color: var(--text);
-  border-radius: 8px;
+  border-radius: 999px;
   min-height: 36px;
-  padding: 0 12px;
+  padding: 0 14px;
   box-shadow: 0 1px 1px rgba(24, 20, 33, 0.04);
   font: inherit;
   font-size: 13px;
@@ -260,14 +273,14 @@ button,
 button:hover,
 .button-link:hover {
   border-color: var(--border-strong);
-  box-shadow: 0 7px 16px rgba(76, 29, 149, 0.1);
-  transform: translateY(-1px);
+  box-shadow: var(--shadow-lift);
+  transform: translateY(-2px);
 }
 
 button.primary,
 .button-link.primary {
   border-color: var(--accent);
-  background: linear-gradient(180deg, #8b5cf6, var(--accent));
+  background: linear-gradient(135deg, #8b5cf6, var(--accent) 58%, var(--blue));
   color: #ffffff;
   box-shadow: 0 10px 22px var(--accent-glow);
 }
@@ -275,7 +288,7 @@ button.primary,
 button.primary:hover,
 .button-link.primary:hover {
   border-color: var(--accent-strong);
-  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong) 58%, #1d4ed8);
 }
 
 button:disabled {
@@ -299,15 +312,15 @@ button.ghost:hover {
 
 .button-row[role="tablist"] {
   gap: 4px;
-  padding: 4px;
+  padding: 5px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface-soft);
+  border-radius: 999px;
+  background: rgba(244, 239, 255, 0.8);
 }
 
 button.tab {
   border-color: transparent;
-  border-radius: 6px;
+  border-radius: 999px;
   min-height: 30px;
   padding: 0 10px;
   background: transparent;
@@ -326,7 +339,7 @@ button.tab.active {
   border-color: var(--border-strong);
   background: #ffffff;
   color: var(--accent-strong);
-  box-shadow: 0 5px 14px rgba(76, 29, 149, 0.1);
+  box-shadow: 0 7px 18px rgba(76, 29, 149, 0.12);
 }
 
 button.danger {
@@ -363,7 +376,7 @@ textarea,
 select {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -463,13 +476,15 @@ ul.library-list {
 
 .library-row {
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: 8px;
-  padding: 11px;
-  background: rgba(255, 255, 255, 0.78);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(251, 249, 255, 0.84)),
+    #ffffff;
   display: grid;
   gap: 9px;
-  box-shadow: 0 6px 18px rgba(76, 29, 149, 0.07);
+  box-shadow: 0 8px 22px rgba(76, 29, 149, 0.08);
 }
 
 .library-row-main {
@@ -489,9 +504,9 @@ ul.library-list {
   display: grid;
   gap: 12px;
   margin: 0;
-  padding: 13px;
+  padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: linear-gradient(180deg, #ffffff, #fbf9ff);
 }
 
@@ -502,9 +517,171 @@ ul.library-list {
   font-weight: 800;
 }
 
+.review-workspace {
+  gap: 14px;
+}
+
+.review-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.review-summary > div {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(180deg, #ffffff, rgba(239, 246, 255, 0.56)),
+    #ffffff;
+  padding: 12px;
+  display: grid;
+  gap: 3px;
+}
+
+.review-summary strong {
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.metric-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.review-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.review-card {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent-strong);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(251, 249, 255, 0.9)),
+    #ffffff;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  box-shadow: 0 10px 26px rgba(76, 29, 149, 0.08);
+}
+
+.score-pill {
+  align-self: flex-start;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.review-prompt {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  padding: 10px;
+  display: grid;
+  gap: 5px;
+}
+
+.review-prompt p {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.run-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.run-column {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.run-column pre {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: var(--radius-sm);
+  background: #171222;
+  color: #f7f2ff;
+  padding: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.grade-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.grade-list li {
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.grade-list li.passed {
+  border: 1px solid #a7dccb;
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.grade-list li.failed {
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.grade-list span {
+  color: inherit;
+  opacity: 0.82;
+}
+
+textarea.feedback-box {
+  min-height: 92px;
+  border-color: var(--border);
+  background: #ffffff;
+  color: var(--text);
+  font-family: inherit;
+}
+
+.review-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.improvement-panel textarea {
+  min-height: 360px;
+}
+
 details {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.62);
   padding: 9px 10px;
 }
@@ -533,7 +710,7 @@ details p {
 .modal {
   background: var(--surface);
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   box-shadow: 0 24px 64px rgba(24, 20, 33, 0.28);
   padding: 14px;
   width: min(420px, 100%);
@@ -571,6 +748,10 @@ details p {
 
   .button-row[role="tablist"] {
     width: 100%;
+  }
+
+  .run-comparison {
+    grid-template-columns: 1fr;
   }
 }
 

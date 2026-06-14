@@ -189,6 +189,17 @@ describe("skillLibrary", () => {
     expect(updated2?.claudeZip).toBe("BASE64DATA2");
   });
 
+  it("lets updates clear stale ZIP blobs", async () => {
+    const { lib, storage } = makeLibrary();
+    storage.store["skillLibrary.v1"] = {
+      entries: [makeEntry({ id: "a", codexZip: "OLD-CODEX", claudeZip: "OLD-CLAUDE" })]
+    };
+    await lib.updateEntry("a", { codexZip: "", claudeZip: "" });
+    const entry = await lib.getEntry("a");
+    expect(entry?.codexZip).toBeUndefined();
+    expect(entry?.claudeZip).toBeUndefined();
+  });
+
   it("retries once on quota error by dropping the oldest entry", async () => {
     const { lib, storage } = makeLibrary();
     storage.store["skillLibrary.v1"] = {

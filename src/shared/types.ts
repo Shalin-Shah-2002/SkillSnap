@@ -14,11 +14,25 @@ export interface SkillDraft {
   displayName: string;
   description: string;
   triggerGuidance: string;
+  outputFormat: string;
   workflow: string[];
   importantDetails: string[];
+  examples: SkillExample[];
   limitations: string[];
   videoSummary: string;
   referenceNotes: string[];
+  starterEvalCases: SkillDraftEvalCase[];
+}
+
+export interface SkillExample {
+  input: string;
+  output: string;
+}
+
+export interface SkillDraftEvalCase {
+  prompt: string;
+  expectedOutput: string;
+  assertions: string[];
 }
 
 export interface SkillPackage {
@@ -37,6 +51,7 @@ export interface GeneratedSkills {
 
 import type { ProviderId } from "./providers";
 import type { SkillLibraryConfig, SkillLibraryEntry } from "./skillLibraryTypes";
+import type { SkillReviewSession } from "./skillReviewTypes";
 
 export interface ProviderSettings {
   apiKey: string;
@@ -107,6 +122,33 @@ export type RuntimeRequest =
       skillName: string;
       displayName: string;
       skillNameHint?: string;
+    }
+  | {
+      type: "SKILL_REVIEW_CREATE";
+      entryId: string;
+      kind?: "codex" | "claude";
+    }
+  | {
+      type: "SKILL_REVIEW_STEP";
+      sessionId: string;
+    }
+  | {
+      type: "SKILL_REVIEW_SAVE_FEEDBACK";
+      sessionId: string;
+      evalCaseId: string;
+      feedback: string;
+    }
+  | {
+      type: "SKILL_REVIEW_IMPROVE";
+      sessionId: string;
+    }
+  | {
+      type: "SKILL_REVIEW_APPLY_IMPROVEMENT";
+      sessionId: string;
+    }
+  | {
+      type: "SKILL_REVIEW_LIST";
+      entryId?: string;
     };
 
 export type ContentRequest = {
@@ -122,6 +164,15 @@ export type LibraryRebuildZipResult = {
   base64: string;
   fileName: string;
   cached: boolean;
+};
+
+export type SkillReviewListResult = {
+  sessions: SkillReviewSession[];
+};
+
+export type SkillReviewApplyResult = {
+  entry: SkillLibraryEntry;
+  session: SkillReviewSession;
 };
 
 export type RuntimeResponse<T> =
