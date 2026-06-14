@@ -10,45 +10,9 @@ export const FALLBACK_FLASH_MODELS = [
   "gemini-2.0-flash"
 ];
 
-export const DEFAULT_OPENCODE_ZEN_MODEL = "gpt-5-nano";
-
-export const DEFAULT_OPENCODE_GO_MODEL = "gpt-5-nano";
-
-export const DEFAULT_OPENCODE_FALLBACK_MODELS = [
-  "gpt-5-nano",
-  "claude-haiku-4-5",
-  "kimi-k2.6"
-];
-
-export const DEFAULT_NVIDIA_MODEL = "meta/llama-3.3-70b-instruct";
-
-export const DEFAULT_NVIDIA_FALLBACK_MODELS = [
-  "meta/llama-3.3-70b-instruct",
-  "nvidia/llama-3.1-nemotron-ultra-253b-v1",
-  "qwen/qwen3-coder-480b-a35b-instruct",
-  "meta/llama-3.1-8b-instruct",
-  "google/gemma-2-9b-it",
-  "microsoft/phi-3-mini-4k-instruct"
-];
-
 export const DEFAULT_GEMINI_SETTINGS: ProviderSettings = {
   apiKey: "",
   model: DEFAULT_GEMINI_MODEL
-};
-
-export const DEFAULT_OPENCODE_ZEN_SETTINGS: ProviderSettings = {
-  apiKey: "",
-  model: DEFAULT_OPENCODE_ZEN_MODEL
-};
-
-export const DEFAULT_OPENCODE_GO_SETTINGS: ProviderSettings = {
-  apiKey: "",
-  model: DEFAULT_OPENCODE_GO_MODEL
-};
-
-export const DEFAULT_NVIDIA_SETTINGS: ProviderSettings = {
-  apiKey: "",
-  model: DEFAULT_NVIDIA_MODEL
 };
 
 export interface ExtensionSettingsV1 {
@@ -63,10 +27,7 @@ export interface ExtensionSettingsV2 {
 
 export function getDefaultProviderSettings(): Record<ProviderId, ProviderSettings> {
   return {
-    gemini: { ...DEFAULT_GEMINI_SETTINGS },
-    "opencode-zen": { ...DEFAULT_OPENCODE_ZEN_SETTINGS },
-    "opencode-go": { ...DEFAULT_OPENCODE_GO_SETTINGS },
-    "nvidia-nim": { ...DEFAULT_NVIDIA_SETTINGS }
+    gemini: { ...DEFAULT_GEMINI_SETTINGS }
   };
 }
 
@@ -101,10 +62,7 @@ export function readStoredSettings(stored: Record<string, unknown>): ExtensionSe
   const storedProviders = (migrated.providers || {}) as Record<string, Partial<ProviderSettings>>;
 
   const providers: Record<ProviderId, ProviderSettings> = {
-    gemini: readProviderSettings(storedProviders.gemini, DEFAULT_GEMINI_SETTINGS),
-    "opencode-zen": readProviderSettings(storedProviders["opencode-zen"], DEFAULT_OPENCODE_ZEN_SETTINGS),
-    "opencode-go": readProviderSettings(storedProviders["opencode-go"], DEFAULT_OPENCODE_GO_SETTINGS),
-    "nvidia-nim": readProviderSettings(storedProviders["nvidia-nim"], DEFAULT_NVIDIA_SETTINGS)
+    gemini: readProviderSettings(storedProviders.gemini, DEFAULT_GEMINI_SETTINGS)
   };
 
   const activeProvider = (migrated.activeProvider as ProviderId) || "gemini";
@@ -143,10 +101,7 @@ function migrateSettings(stored: Record<string, unknown>): Record<string, unknow
   return {
     activeProvider: "gemini",
     providers: {
-      gemini: { apiKey: legacyKey, model: legacyModel },
-      "opencode-zen": { apiKey: "", model: DEFAULT_OPENCODE_ZEN_MODEL },
-      "opencode-go": { apiKey: "", model: DEFAULT_OPENCODE_GO_MODEL },
-      "nvidia-nim": { apiKey: "", model: DEFAULT_NVIDIA_MODEL }
+      gemini: { apiKey: legacyKey, model: legacyModel }
     }
   };
 }

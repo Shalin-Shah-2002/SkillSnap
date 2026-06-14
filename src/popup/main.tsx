@@ -5,6 +5,7 @@ import { getPackageFiles } from "../shared/skillFormat";
 import { buildSkillPrompt, trimTranscriptWithMarker } from "../shared/skillPromptBuilder";
 import { DEFAULT_SETTINGS } from "../shared/settings";
 import { getProviderInfo, type ProviderId } from "../shared/providers";
+import { BrandMark } from "../shared/branding";
 import {
   formatRelativeTime,
   type SkillLibraryEntry
@@ -438,9 +439,12 @@ function App() {
   return (
     <section className="app-shell">
       <header className="topbar">
-        <div>
-          <h1>YouTube Skill Maker</h1>
-          <p className="muted">Generate editable Codex and Claude skill ZIPs from captions.</p>
+        <div className="brand-row">
+          <BrandMark size={56} />
+          <div className="brand-copy">
+            <h1>SkillSnap</h1>
+            <p className="muted">Generate editable Codex and Claude skill ZIPs from captions.</p>
+          </div>
         </div>
         <div className="button-row">
           <button type="button" className="ghost" onClick={openHistoryList}>

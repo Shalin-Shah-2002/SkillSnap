@@ -20,7 +20,7 @@ import type {
   RuntimeResponse
 } from "../shared/types";
 import { getProvider } from "./providers";
-import { testApiKey } from "./opencode";
+import { testGeminiApiKey } from "./gemini";
 
 interface SettingsStatus {
   hasKey: boolean;
@@ -161,7 +161,7 @@ async function handleRuntimeMessage(
   if (message.type === "TEST_API_KEY") {
     const apiKey = (message as unknown as { apiKey: string }).apiKey;
     console.log(`[background] Testing API key...`);
-    const result = await testApiKey(apiKey);
+    const result = await testGeminiApiKey(apiKey);
     console.log(`[background] Test result: ${result.ok ? "OK" : "FAIL"} - ${result.message}`);
     return result;
   }
@@ -247,10 +247,7 @@ function buildSettingsStatus(settings: ExtensionSettings): SettingsStatus {
     hasKey: hasProviderKey(settings, settings.activeProvider),
     activeProvider: settings.activeProvider,
     providers: [
-      { id: "gemini", hasKey: hasProviderKey(settings, "gemini") },
-      { id: "opencode-zen", hasKey: hasProviderKey(settings, "opencode-zen") },
-      { id: "opencode-go", hasKey: hasProviderKey(settings, "opencode-go") },
-      { id: "nvidia-nim", hasKey: hasProviderKey(settings, "nvidia-nim") }
+      { id: "gemini", hasKey: hasProviderKey(settings, "gemini") }
     ]
   };
 }

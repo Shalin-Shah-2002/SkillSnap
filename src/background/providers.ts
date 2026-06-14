@@ -1,13 +1,8 @@
 import { GeminiProvider } from "./gemini";
-import { NvidiaNimProvider } from "./nvidiaNim";
-import { OpenCodeGoProvider, OpenCodeZenProvider } from "./opencode";
 import type { ProviderId, SkillProvider } from "../shared/providers";
 
 const REGISTRY: Record<ProviderId, SkillProvider> = {
-  gemini: new GeminiProvider(),
-  "opencode-zen": new OpenCodeZenProvider(),
-  "opencode-go": new OpenCodeGoProvider(),
-  "nvidia-nim": new NvidiaNimProvider()
+  gemini: new GeminiProvider()
 };
 
 export function getProvider(id: ProviderId): SkillProvider {

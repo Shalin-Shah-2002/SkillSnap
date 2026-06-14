@@ -16,11 +16,11 @@ import {
   selectCaptionTrack
 } from "./youtube-parser";
 
-const MAIN_WORLD_REQUEST_EVENT = "youtube-skill-maker:get-main-world-transcript";
-const MAIN_WORLD_RESPONSE_EVENT = "youtube-skill-maker:main-world-transcript-result";
-const MAIN_WORLD_READY_ATTR = "data-youtube-skill-maker-main-world-ready";
-const POST_MESSAGE_REQUEST = "youtube-skill-maker-mw-request";
-const POST_MESSAGE_RESPONSE = "youtube-skill-maker-mw-response";
+const MAIN_WORLD_REQUEST_EVENT = "skillsnap:get-main-world-transcript";
+const MAIN_WORLD_RESPONSE_EVENT = "skillsnap:main-world-transcript-result";
+const MAIN_WORLD_READY_ATTR = "data-skillsnap-main-world-ready";
+const POST_MESSAGE_REQUEST = "skillsnap-mw-request";
+const POST_MESSAGE_RESPONSE = "skillsnap-mw-response";
 
 type MainWorldResponseDetail =
   | {
@@ -936,10 +936,10 @@ async function ensureMainWorldBridge(): Promise<boolean> {
     return true;
   }
 
-  const existingScript = document.getElementById("youtube-skill-maker-main-world-script");
+  const existingScript = document.getElementById("skillsnap-main-world-script");
   if (!existingScript) {
     const script = document.createElement("script");
-    script.id = "youtube-skill-maker-main-world-script";
+    script.id = "skillsnap-main-world-script";
     script.src = chrome.runtime.getURL("youtube-main-world.js");
     script.async = false;
     (document.head || document.documentElement).appendChild(script);

@@ -4,10 +4,7 @@ import {
   readStoredSettings,
   getDefaultProviderSettings,
   getSettingsForProvider,
-  DEFAULT_GEMINI_MODEL,
-  DEFAULT_OPENCODE_ZEN_MODEL,
-  DEFAULT_OPENCODE_GO_MODEL,
-  DEFAULT_NVIDIA_MODEL
+  DEFAULT_GEMINI_MODEL
 } from "../shared/settings";
 import { PROVIDER_LIST, getProviderInfo, type ModelOption, type ProviderId } from "../shared/providers";
 import {
@@ -19,28 +16,20 @@ import {
   MAX_SKILL_LIBRARY_SOFT_CAP,
   MIN_SKILL_LIBRARY_SOFT_CAP
 } from "../shared/skillLibraryTypes";
+import { BrandMark } from "../shared/branding";
 import type { ExtensionSettings, LibraryListResult, LibraryRebuildZipResult, RuntimeRequest, RuntimeResponse } from "../shared/types";
 
 function OptionsApp() {
   const [settings, setSettings] = useState<ExtensionSettings>(() => defaultEmptySettings());
   const [showKey, setShowKey] = useState<Record<ProviderId, boolean>>({
-    gemini: false,
-    "opencode-zen": false,
-    "opencode-go": false,
-    "nvidia-nim": false
+    gemini: false
   });
   const [status, setStatus] = useState("");
   const [testResults, setTestResults] = useState<Record<ProviderId, { ok: boolean; message: string } | null>>({
-    gemini: null,
-    "opencode-zen": null,
-    "opencode-go": null,
-    "nvidia-nim": null
+    gemini: null
   });
   const [testing, setTesting] = useState<Record<ProviderId, boolean>>({
-    gemini: false,
-    "opencode-zen": false,
-    "opencode-go": false,
-    "nvidia-nim": false
+    gemini: false
   });
 
   useEffect(() => {
@@ -79,23 +68,11 @@ function OptionsApp() {
   function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const cleaned: ExtensionSettings = {
-      activeProvider: settings.activeProvider,
+      activeProvider: "gemini",
       providers: {
         gemini: {
           apiKey: settings.providers.gemini.apiKey.trim(),
           model: settings.providers.gemini.model.trim() || DEFAULT_GEMINI_MODEL
-        },
-        "opencode-zen": {
-          apiKey: settings.providers["opencode-zen"].apiKey.trim(),
-          model: settings.providers["opencode-zen"].model.trim() || DEFAULT_OPENCODE_ZEN_MODEL
-        },
-        "opencode-go": {
-          apiKey: settings.providers["opencode-go"].apiKey.trim(),
-          model: settings.providers["opencode-go"].model.trim() || DEFAULT_OPENCODE_GO_MODEL
-        },
-        "nvidia-nim": {
-          apiKey: settings.providers["nvidia-nim"].apiKey.trim(),
-          model: settings.providers["nvidia-nim"].model.trim() || DEFAULT_NVIDIA_MODEL
         }
       }
     };
@@ -144,11 +121,14 @@ function OptionsApp() {
   return (
     <section className="options-shell stack">
       <header className="topbar">
-        <div>
-          <h1>YouTube Skill Maker Settings</h1>
-          <p className="muted">
-            Pick a provider to generate skills. Active provider: <strong>{activeProviderInfo.displayName}</strong>.
-          </p>
+        <div className="brand-row">
+          <BrandMark size={56} />
+          <div className="brand-copy">
+            <h1>SkillSnap Settings</h1>
+            <p className="muted">
+              Pick a provider to generate skills. Active provider: <strong>{activeProviderInfo.displayName}</strong>.
+            </p>
+          </div>
         </div>
       </header>
 

@@ -1,8 +1,8 @@
-const REQUEST_EVENT = "youtube-skill-maker:get-main-world-transcript";
-const RESPONSE_EVENT = "youtube-skill-maker:main-world-transcript-result";
-const READY_ATTR = "data-youtube-skill-maker-main-world-ready";
-const POST_MESSAGE_REQUEST = "youtube-skill-maker-mw-request";
-const POST_MESSAGE_RESPONSE = "youtube-skill-maker-mw-response";
+const REQUEST_EVENT = "skillsnap:get-main-world-transcript";
+const RESPONSE_EVENT = "skillsnap:main-world-transcript-result";
+const READY_ATTR = "data-skillsnap-main-world-ready";
+const POST_MESSAGE_REQUEST = "skillsnap-mw-request";
+const POST_MESSAGE_RESPONSE = "skillsnap-mw-response";
 
 type RequestDetail = {
   requestId?: string;

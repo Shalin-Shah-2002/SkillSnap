@@ -149,3 +149,65 @@ export function extractGeminiText(payload: GeminiResponse): string {
 
   return text;
 }
+
+export async function testGeminiApiKey(
+  apiKey: string
+): Promise<{ ok: boolean; message: string; model: string }> {
+  const candidates = [DEFAULT_GEMINI_MODEL, ...FALLBACK_FLASH_MODELS];
+  for (const model of candidates) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+      model
+    )}:generateContent`;
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: "hi" }]
+            }
+          ],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 1
+          }
+        })
+      });
+
+      if (response.ok) {
+        return { ok: true, message: `Key works with model: ${model}`, model };
+      }
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: { message?: string };
+      };
+      const errorMsg = payload.error?.message || `HTTP ${response.status}`;
+
+      if (response.status === 400 && /api ?key/i.test(errorMsg)) {
+        return { ok: false, message: `Invalid API key: ${errorMsg}`, model };
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        return { ok: false, message: `${response.status}: ${errorMsg}`, model };
+      }
+
+      if (response.status === 404) {
+        continue;
+      }
+
+      return { ok: false, message: `${response.status}: ${errorMsg}`, model };
+    } catch (err) {
+      return {
+        ok: false,
+        message: `Network error: ${err instanceof Error ? err.message : String(err)}`,
+        model
+      };
+    }
+  }
+  return { ok: false, message: "No accessible Gemini models found for this key.", model: "" };
+}

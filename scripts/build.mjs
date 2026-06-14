@@ -28,25 +28,25 @@ const builds = [
     entryPoints: [path.join(root, "src/content/index.ts")],
     outfile: path.join(dist, "content.js"),
     format: "iife",
-    globalName: "YouTubeSkillMakerContent"
+    globalName: "SkillSnapContent"
   },
   {
     entryPoints: [path.join(root, "src/content/main-world.ts")],
     outfile: path.join(dist, "youtube-main-world.js"),
     format: "iife",
-    globalName: "YouTubeSkillMakerMainWorld"
+    globalName: "SkillSnapMainWorld"
   },
   {
     entryPoints: [path.join(root, "src/popup/main.tsx")],
     outfile: path.join(dist, "popup.js"),
     format: "iife",
-    globalName: "YouTubeSkillMakerPopup"
+    globalName: "SkillSnapPopup"
   },
   {
     entryPoints: [path.join(root, "src/options/main.tsx")],
     outfile: path.join(dist, "options.js"),
     format: "iife",
-    globalName: "YouTubeSkillMakerOptions"
+    globalName: "SkillSnapOptions"
   }
 ];
 

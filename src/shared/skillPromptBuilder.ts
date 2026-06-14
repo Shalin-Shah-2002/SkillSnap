@@ -49,7 +49,7 @@ export function buildSkillPrompt(video: VideoContext, options: SkillPromptBuilde
     "- Keep description under 180 characters.",
     "- Avoid references to \"this video\" in the main workflow; the skill should stand alone.",
     "",
-    "Output packaging (handled outside this prompt by the YouTube Skill Maker extension):",
+    "Output packaging (handled outside this prompt by the SkillSnap extension):",
     "The JSON you return will be turned into a skill ZIP containing:",
     "- <skillName>/SKILL.md",
     "- <skillName>/references/video-summary.md",

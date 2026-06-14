@@ -1,67 +1,161 @@
-# YouTube Skill Maker
+# SkillSnap
 
-Turn captioned YouTube videos into editable AI skill ZIPs for Codex and Claude.
+<p align="left">
+  <img src="public/logo-128.png" alt="SkillSnap logo" width="128" />
+</p>
 
-This Chrome MV3 extension reads a YouTube video's transcript, asks Gemini to turn the video into a reusable skill, then lets you review and download two ZIP packages:
+SkillSnap is a Chrome extension that turns captioned YouTube videos into editable Codex and Claude skill ZIPs using the Google Gemini API.
 
-- a Codex-friendly skill package
-- a Claude-friendly skill package
-
-Each generated ZIP now includes:
-
-- `SKILL.md`
-- `references/video-summary.md`
-- `references/full-transcript.md`
+It captures the transcript from the active YouTube tab, asks Gemini to turn the video into a reusable skill, and gives you a clean review step before download.
 
 ## What It Does
 
-The extension is designed for fast skill creation from educational or workflow-heavy YouTube videos.
+SkillSnap is built for educational videos, tutorials, and repeatable workflows.
 
 Typical flow:
 
 1. Open a YouTube video with captions.
-2. Capture the transcript from YouTube.
-3. Send the transcript and video metadata to Gemini.
-4. Generate a structured skill draft.
-5. Let the user review and edit the generated files.
-6. Download ready-to-use ZIP packages for Codex and Claude.
+2. Click the extension icon.
+3. Capture the transcript from the active tab.
+4. Send the transcript and video metadata to Google Gemini.
+5. Generate a structured skill draft.
+6. Review or edit the generated files.
+7. Download ready-to-use ZIP packages for Codex and Claude.
 
-## Features
+## Key Features
 
 - Works on YouTube watch pages and Shorts
+- Uses the Google Gemini API for skill generation
 - Generates both Codex and Claude skill packages
-- Uses Gemini Flash models for generation
-- Lets users edit generated skill content before download
-- Includes a brief source summary file
-- Includes the full captured transcript in every ZIP
+- Lets you edit the generated content before download
+- Includes a source summary file and the full captured transcript in every ZIP
 - Uses multiple transcript fallback strategies for better YouTube compatibility
-- **Skill Library** — every successful generation is auto-saved in `chrome.storage.local`; revisit, re-download, regenerate, or delete from the popup History drawer or the options page (per-row actions). Configurable soft cap with FIFO eviction (default 50).
-- **Copy Skill Prompt** — copy a self-contained prompt with the transcript and metadata already inlined. Paste it into Claude Code or Codex to generate the skill in your own CLI; no API key needed for this flow.
+- Saves every successful generation to a local Skill Library
+- Lets you reopen, regenerate, re-download, copy the source URL, or delete past entries
+- Includes a Copy Skill Prompt flow that works without an API key
+
+## What Gets Generated
+
+Each ZIP contains:
+
+```text
+skill-name/
+  SKILL.md
+  references/
+    video-summary.md
+    full-transcript.md
+```
+
+### `SKILL.md`
+
+The main reusable skill instructions.
+
+### `references/video-summary.md`
+
+Contains:
+
+- a short AI-generated summary
+- source metadata
+- reference notes
+
+### `references/full-transcript.md`
+
+Contains:
+
+- source metadata
+- the complete captured transcript
+
+## Requirements
+
+- Node.js
+- npm
+- Google Gemini API key
+- Chrome or another Chromium-based browser with extension support
+
+## Setup
+
+### Install dependencies
+
+```bash
+npm install
+```
+
+### Build the extension
+
+```bash
+npm run build
+```
+
+### Development watch mode
+
+```bash
+npm run dev
+```
+
+### Run tests
+
+```bash
+npm test
+```
+
+### Run type checking
+
+```bash
+npm run typecheck
+```
+
+## Load in Chrome
+
+1. Open `chrome://extensions`
+2. Enable Developer mode
+3. Click Load unpacked
+4. Select the project's `dist` folder
+
+After rebuilding, reload the extension from the extensions page before testing changes.
+
+## Usage
+
+1. Open the extension settings page
+2. Paste a valid Google Gemini API key
+3. Leave the Gemini model on the recommended default unless you want to change it
+4. Open a captioned YouTube video
+5. Click the extension icon
+6. Optionally enter a skill name hint
+7. Click Make Skill
+8. Review or edit the generated files
+9. Download the Codex ZIP or the Claude ZIP
+
+## Recommended Gemini Model
+
+The extension defaults to:
+
+- `gemini-2.5-flash`
+
+This is the recommended fast model for most videos.
 
 ## Project Structure
 
-High-level parts of the extension:
-
-- `src/popup/` — popup UI for generation, editing, and downloading
-- `src/options/` — settings page for Gemini key and model
-- `src/background/` — runtime message handling and Gemini calls
-- `src/content/` — YouTube transcript extraction logic
-- `src/shared/` — shared types, prompts, and skill package formatting
-- `public/manifest.json` — Chrome extension manifest
-- `dist/` — built extension output for loading into Chrome
+- `src/popup/` - popup UI for generation, editing, and downloading
+- `src/options/` - settings page for the Gemini key and model
+- `src/background/` - runtime message handling and Gemini calls
+- `src/content/` - YouTube transcript extraction logic
+- `src/shared/` - shared types, prompts, and package formatting
+- `public/manifest.json` - Chrome extension manifest
+- `public/logo-*.png` - logo assets used by the extension UI and browser icon
+- `dist/` - built extension output for loading into Chrome
 
 ## How It Works
 
 ### 1. Transcript capture
 
-When the user clicks `Make Skill`, the extension tries to read transcript data from the active YouTube tab.
+When you click Make Skill, SkillSnap tries to read transcript data from the active YouTube tab.
 
-It currently attempts several fallback paths:
+It uses several fallback paths:
 
 - caption track files from YouTube
 - transcript extraction from the page context
-- transcript extraction from visible transcript UI
-- YouTube internal transcript endpoint as a last fallback
+- transcript extraction from the visible transcript UI
+- YouTube internal transcript endpoints as backups
 
 If all transcript strategies fail, generation stops with an error.
 
@@ -75,14 +169,14 @@ Once a transcript is captured, the extension sends:
 - caption language
 - transcript text
 
-to the Gemini API and asks for structured JSON that describes a reusable skill.
+to the Google Gemini API and asks for structured JSON that describes a reusable skill.
 
 ### 3. Package building
 
 The returned draft is normalized into two final packages:
 
-- Codex package
-- Claude package
+- a Codex package
+- a Claude package
 
 Each package gets:
 
@@ -92,117 +186,33 @@ Each package gets:
 
 ### 4. ZIP download
 
-The popup generates a ZIP file in-browser using `jszip` and downloads it locally.
+The popup generates a ZIP file in the browser using `jszip` and downloads it locally.
 
-## Output Format
+## Skill Library
 
-Each generated ZIP is structured like this:
+Successful generations are saved locally in Chrome storage.
 
-```text
-skill-name/
-  SKILL.md
-  references/
-    video-summary.md
-    full-transcript.md
-```
+From the popup or options page, you can:
 
-### `SKILL.md`
+- review previous generations
+- re-download Codex or Claude ZIPs
+- view the generated files
+- copy the source video URL
+- regenerate from the stored transcript
+- delete entries you no longer need
 
-Contains the main reusable skill instructions.
+The library uses a soft cap so older entries are evicted automatically when needed.
 
-### `references/video-summary.md`
+## Security and Privacy
 
-Contains:
-
-- short AI-generated summary
-- source metadata
-- reference notes
-
-### `references/full-transcript.md`
-
-Contains:
-
-- source metadata
-- the full captured transcript exactly as stored in memory
-
-## Setup
-
-### Requirements
-
-- Node.js
-- npm
-- Google Gemini API key
-- Chrome or another Chromium-based browser with extension support
-
-### Install dependencies
-
-```sh
-npm install
-```
-
-### Build the extension
-
-```sh
-npm run build
-```
-
-### Development watch mode
-
-```sh
-npm run dev
-```
-
-### Run tests
-
-```sh
-npm test
-```
-
-### Run type checking
-
-```sh
-npm run typecheck
-```
-
-## Load in Chrome
-
-1. Open `chrome://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select the project's `dist` folder
-
-After rebuilding, reload the extension from the extensions page before testing changes.
-
-## Usage
-
-1. Open the extension settings page
-2. Paste a valid Gemini API key
-3. Leave the model set to the recommended Flash model unless you have a specific reason to change it
-4. Open a captioned YouTube video
-5. Click the extension icon
-6. Optionally enter a skill name hint
-7. Click `Make Skill`
-8. Review or edit the generated files
-9. Download the Codex ZIP or Claude ZIP
-
-## Recommended Gemini Model
-
-Current default:
-
-- `gemini-2.5-flash`
-
-The extension also retries a small set of Flash-compatible fallback model names when needed.
-
-## Security Notes
-
-This project is currently positioned as a personal MVP.
+SkillSnap is currently designed as a local-first personal extension.
 
 Important notes:
 
-- Gemini API keys are stored in Chrome local extension storage
-- this is acceptable for personal use, but not ideal for a public/shared release
-- users should restrict their API key if possible
-- if a key is suspended, invalid, or denied, the extension now shows a safer error without exposing the full key
+- Google Gemini API keys are stored in Chrome local extension storage
+- transcripts are processed locally in the extension before being sent to Gemini
+- the extension does not use a backend server
+- if a key is suspended, invalid, or denied, the extension shows a friendly error message
 
 ## Known Limitations
 
@@ -210,37 +220,26 @@ Important notes:
 - YouTube transcript UI can change and break selectors
 - Region-locked, age-restricted, or otherwise protected videos may fail
 - Gemini output quality depends on transcript quality
-- Very long transcripts may be trimmed for the Gemini prompt, even though the full captured transcript is still packaged in the ZIP
-- This is not a server-backed product yet; everything runs locally in the extension
+- Very long transcripts may be trimmed for the Gemini prompt, even though the full transcript is still packaged in the ZIP
+- This is not a server-backed product yet, so everything runs locally in the extension
 
 ## Troubleshooting
 
-### “Captions were found, but YouTube returned empty caption files...”
+### Captions were found, but YouTube returned empty caption files
 
 Possible causes:
 
 - YouTube changed the transcript UI
-- transcript endpoint rejected the request
-- the video captions are present but not readable through current fallbacks
+- the transcript endpoint rejected the request
+- the video captions are present but not readable through the current fallbacks
 
 Try:
 
-- refreshing the YouTube tab
-- reloading the extension
-- trying another video with normal captions
+1. Refresh the YouTube tab
+2. Reload the extension
+3. Try another video with normal captions
 
-### “This Gemini API key has been suspended”
-
-That is a Google-side issue, not a local code issue.
-
-Fix:
-
-1. create a new active Gemini API key
-2. open extension settings
-3. replace the old key
-4. try again
-
-### “Invalid API key”
+### Invalid Google Gemini API key
 
 Make sure:
 
@@ -248,9 +247,20 @@ Make sure:
 - the key is active
 - the key is allowed to use the Gemini API
 
-## Best Video Types for This Tool
+### Gemini key suspended
 
-This extension works best on videos that teach:
+That is a Google-side issue, not a local code issue.
+
+Fix:
+
+1. Create a new active Google Gemini API key
+2. Open extension settings
+3. Replace the old key
+4. Try again
+
+## Best Video Types For This Tool
+
+SkillSnap works best on videos that teach:
 
 - repeatable workflows
 - debugging methods
@@ -258,57 +268,7 @@ This extension works best on videos that teach:
 - growth tactics
 - product strategy
 - operational playbooks
-- design systems
-- marketing frameworks
 
-It works less well for:
+## Branding
 
-- entertainment videos
-- vague opinion pieces
-- heavily visual tutorials with little spoken explanation
-
-## Suggested Product Names
-
-If you want to rename the extension, here are strong options:
-
-### Clear and practical
-
-- SkillTube
-- YouTube Skill Maker
-- Video Skill Builder
-- Transcript to Skill
-- Skill ZIP Generator
-
-### More productized
-
-- SkillForge
-- SkillMint
-- PromptCraft Video
-- Agent Skill Studio
-- WorkflowTube
-
-### Best picks
-
-If you want my strongest recommendations:
-
-- `SkillForge` — strongest product name
-- `SkillTube` — simple and memorable
-- `Transcript to Skill` — clearest descriptive name
-- `Agent Skill Studio` — best if you want a more premium tool feel
-
-## Version
-
-Current manifest version:
-
-- `0.1.0`
-
-## License / Status
-
-This repository currently reads like a personal MVP / internal tool project.
-
-If you plan to publish it publicly, the next good improvements would be:
-
-- safer key handling
-- clearer failure diagnostics
-- richer preview for transcript and summary files
-- stronger branding and onboarding
+The logo used throughout the extension is stored in `public/logo-*.png` and is also used in the popup, settings page, and extension icon.
