@@ -1,4 +1,4 @@
-import type { ContentRequest, RuntimeResponse, VideoContext } from "../shared/types";
+import type { ContentRequest, RuntimeRequest, RuntimeResponse, VideoContext } from "../shared/types";
 import {
   captionTrackLabel,
   captionUrlWithFormat,
@@ -21,6 +21,8 @@ const MAIN_WORLD_RESPONSE_EVENT = "skillsnap:main-world-transcript-result";
 const MAIN_WORLD_READY_ATTR = "data-skillsnap-main-world-ready";
 const POST_MESSAGE_REQUEST = "skillsnap-mw-request";
 const POST_MESSAGE_RESPONSE = "skillsnap-mw-response";
+const MAKE_SKILL_BUTTON_ID = "skillsnap-youtube-make-skill";
+const MAKE_SKILL_STYLE_ID = "skillsnap-youtube-make-skill-style";
 
 type MainWorldResponseDetail =
   | {
@@ -51,6 +53,161 @@ chrome.runtime.onMessage.addListener((message: ContentRequest, _sender, sendResp
 
   return true;
 });
+
+installMakeSkillButton();
+document.addEventListener("yt-navigate-finish", () => scheduleMakeSkillButtonInstall(250));
+document.addEventListener("yt-page-data-updated", () => scheduleMakeSkillButtonInstall(250));
+
+const makeSkillButtonObserver = new MutationObserver(() => scheduleMakeSkillButtonInstall(500));
+makeSkillButtonObserver.observe(document.documentElement, { childList: true, subtree: true });
+
+function scheduleMakeSkillButtonInstall(delayMs: number): void {
+  window.setTimeout(() => installMakeSkillButton(), delayMs);
+}
+
+function installMakeSkillButton(): void {
+  if (!getVideoId(location.href)) {
+    document.getElementById(MAKE_SKILL_BUTTON_ID)?.remove();
+    return;
+  }
+
+  injectMakeSkillButtonStyles();
+
+  const placement = findMakeSkillButtonPlacement();
+  if (!placement) {
+    scheduleMakeSkillButtonInstall(750);
+    return;
+  }
+
+  const existing = document.getElementById(MAKE_SKILL_BUTTON_ID);
+  if (existing && placement.container.contains(existing) && existing.previousElementSibling === placement.anchor) {
+    return;
+  }
+
+  const button = existing instanceof HTMLButtonElement ? existing : document.createElement("button");
+  button.id = MAKE_SKILL_BUTTON_ID;
+  button.type = "button";
+  button.textContent = "Make Skill";
+  button.setAttribute("aria-label", "Open SkillSnap to make a skill from this video");
+  if (!button.dataset.skillsnapClickBound) {
+    button.dataset.skillsnapClickBound = "true";
+    button.addEventListener("click", () => {
+      void openExtensionUiFromYouTube(button);
+    });
+  }
+
+  placement.anchor.insertAdjacentElement("afterend", button);
+}
+
+function findMakeSkillButtonPlacement(): { anchor: HTMLElement; container: HTMLElement } | undefined {
+  const subscribeSelectors = [
+    "ytd-watch-metadata #subscribe-button",
+    "ytd-watch-metadata ytd-subscribe-button-renderer",
+    "ytd-watch-metadata button[aria-label*='Subscribe' i]",
+    "ytd-watch-metadata button[aria-label*='Subscribed' i]"
+  ];
+
+  for (const selector of subscribeSelectors) {
+    const anchor = document.querySelector<HTMLElement>(selector);
+    const container = anchor?.parentElement;
+    if (anchor && container) {
+      return { anchor, container };
+    }
+  }
+
+  const owner = document.querySelector<HTMLElement>("ytd-watch-metadata #owner");
+  if (owner) {
+    return { anchor: owner, container: owner.parentElement || owner };
+  }
+
+  const topRow = document.querySelector<HTMLElement>("ytd-watch-metadata #top-row");
+  if (topRow) {
+    return { anchor: topRow, container: topRow.parentElement || topRow };
+  }
+
+  return undefined;
+}
+
+function injectMakeSkillButtonStyles(): void {
+  if (document.getElementById(MAKE_SKILL_STYLE_ID)) {
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.id = MAKE_SKILL_STYLE_ID;
+  style.textContent = `
+    #${MAKE_SKILL_BUTTON_ID} {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      margin: 0 0 0 8px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: 18px;
+      background: #7c3aed;
+      color: #ffffff;
+      font: 600 14px/1.2 Roboto, Arial, sans-serif;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(124, 58, 237, 0.28);
+    }
+
+    #${MAKE_SKILL_BUTTON_ID}:hover {
+      background: #6d28d9;
+    }
+
+    #${MAKE_SKILL_BUTTON_ID}:focus-visible {
+      outline: 2px solid #c4b5fd;
+      outline-offset: 2px;
+    }
+
+    #${MAKE_SKILL_BUTTON_ID}:disabled {
+      cursor: progress;
+      opacity: 0.72;
+    }
+  `;
+  document.documentElement.appendChild(style);
+}
+
+async function openExtensionUiFromYouTube(button: HTMLButtonElement): Promise<void> {
+  const previousText = button.textContent || "Make Skill";
+  button.disabled = true;
+  button.textContent = "Opening...";
+
+  try {
+    await sendRuntimeMessage({ type: "OPEN_EXTENSION_UI" });
+  } catch (error) {
+    console.error("[skillsnap] Could not open extension UI:", error);
+    window.alert(error instanceof Error ? error.message : "Could not open SkillSnap.");
+  } finally {
+    button.disabled = false;
+    button.textContent = previousText;
+  }
+}
+
+function sendRuntimeMessage<T>(message: RuntimeRequest): Promise<T> {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(message, (response: RuntimeResponse<T> | undefined) => {
+      const lastError = chrome.runtime.lastError;
+      if (lastError) {
+        reject(new Error(lastError.message));
+        return;
+      }
+
+      if (!response) {
+        reject(new Error("SkillSnap did not respond."));
+        return;
+      }
+
+      if (response.ok) {
+        resolve(response.data);
+      } else {
+        reject(new Error(response.error));
+      }
+    });
+  });
+}
 
 async function captureVideoContext(): Promise<VideoContext> {
   const videoId = getVideoId(location.href);

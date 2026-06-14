@@ -785,6 +785,13 @@ function TabButton(props: {
 
 const SKILL_LIBRARY_KEY = "skillLibrary.v1";
 const SKILL_LIBRARY_CONFIG_KEY = "skillLibrary.config";
+const UI_LAUNCH_CONTEXT_KEY = "uiLaunchContext";
+
+interface UiLaunchContext {
+  tabId?: number;
+  url?: string;
+  savedAt?: number;
+}
 
 function extractVideoId(url: string): string | null {
   try {
@@ -827,11 +834,56 @@ function getActiveTab(): Promise<chrome.tabs.Tab> {
   return new Promise((resolve, reject) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tab = tabs[0];
-      if (!tab) {
-        reject(new Error("No active tab found."));
+      if (tab && isYouTubeVideoUrl(tab.url || "")) {
+        resolve(tab);
+        return;
+      }
+
+      getLaunchSourceTab()
+        .then((sourceTab) => {
+          if (sourceTab) {
+            resolve(sourceTab);
+            return;
+          }
+          if (tab) {
+            resolve(tab);
+            return;
+          }
+          reject(new Error("No active tab found."));
+        })
+        .catch(() => {
+          if (tab) {
+            resolve(tab);
+            return;
+          }
+          reject(new Error("No active tab found."));
+        });
+    });
+  });
+}
+
+async function getLaunchSourceTab(): Promise<chrome.tabs.Tab | null> {
+  const context = await getStoredLaunchContext();
+  const isFresh = context.savedAt !== undefined && Date.now() - context.savedAt < 5 * 60 * 1000;
+  if (!context.tabId || !isFresh) {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    chrome.tabs.get(context.tabId as number, (tab) => {
+      if (chrome.runtime.lastError || !tab || !isYouTubeVideoUrl(tab.url || context.url || "")) {
+        resolve(null);
         return;
       }
       resolve(tab);
+    });
+  });
+}
+
+function getStoredLaunchContext(): Promise<UiLaunchContext> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(UI_LAUNCH_CONTEXT_KEY, (items) => {
+      resolve((items?.[UI_LAUNCH_CONTEXT_KEY] as UiLaunchContext | undefined) || {});
     });
   });
 }

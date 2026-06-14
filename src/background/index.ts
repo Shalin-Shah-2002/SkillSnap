@@ -37,6 +37,8 @@ const consoleLogger = {
   error: (...args: unknown[]) => console.error(...args)
 };
 
+const UI_LAUNCH_CONTEXT_KEY = "uiLaunchContext";
+
 const skillLibrary = createSkillLibrary({
   storage: {
     get(keys, callback) {
@@ -52,8 +54,8 @@ const skillLibrary = createSkillLibrary({
   logger: consoleLogger
 });
 
-chrome.runtime.onMessage.addListener((message: RuntimeRequest, _sender, sendResponse) => {
-  handleRuntimeMessage(message)
+chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendResponse) => {
+  handleRuntimeMessage(message, sender)
     .then((data) => sendResponse({ ok: true, data } satisfies RuntimeResponse<unknown>))
     .catch((error: unknown) =>
       sendResponse({
@@ -66,7 +68,8 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, _sender, sendResp
 });
 
 async function handleRuntimeMessage(
-  message: RuntimeRequest
+  message: RuntimeRequest,
+  sender: chrome.runtime.MessageSender
 ): Promise<
   | GeneratedSkills
   | SettingsStatus
@@ -81,6 +84,11 @@ async function handleRuntimeMessage(
   if (message.type === "GET_SETTINGS_STATUS") {
     const settings = await getSettings();
     return buildSettingsStatus(settings);
+  }
+
+  if (message.type === "OPEN_EXTENSION_UI") {
+    await openExtensionUi(sender);
+    return { ok: true };
   }
 
   if (message.type === "GENERATE_SKILLS") {
@@ -240,6 +248,32 @@ async function handleRuntimeMessage(
   }
 
   throw new Error("Unsupported extension request.");
+}
+
+async function openExtensionUi(sender: chrome.runtime.MessageSender): Promise<void> {
+  if (sender.tab?.id !== undefined) {
+    await chrome.storage.local.set({
+      [UI_LAUNCH_CONTEXT_KEY]: {
+        tabId: sender.tab.id,
+        url: sender.tab.url || "",
+        savedAt: Date.now()
+      }
+    });
+  }
+
+  try {
+    await chrome.action.openPopup();
+    return;
+  } catch (error) {
+    consoleLogger.warn("[background] Could not open action popup, falling back to popup window:", error);
+  }
+
+  await chrome.windows.create({
+    url: chrome.runtime.getURL("popup.html"),
+    type: "popup",
+    width: 480,
+    height: 720
+  });
 }
 
 function buildSettingsStatus(settings: ExtensionSettings): SettingsStatus {

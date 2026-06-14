@@ -58,6 +58,9 @@ export type RuntimeRequest =
       type: "GET_SETTINGS_STATUS";
     }
   | {
+      type: "OPEN_EXTENSION_UI";
+    }
+  | {
       type: "FETCH_CAPTION_URL";
       url: string;
     }
